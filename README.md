@@ -1,1 +1,1 @@
-# deep_learning_project
+# Training a Neural Network to play Agar.io using Reinforcement Learning
