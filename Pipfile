@@ -10,6 +10,7 @@ black = "*"
 [packages]
 selenium = "*"
 mss = "*"
+python_dotenv = "*"
 
 [requires]
 python_version = "3.7"
