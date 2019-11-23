@@ -24,9 +24,18 @@ with webdriver.Chrome() as driver:
     )[play_button_class_index]
     element.click()
 
+    # This will be useful at some point
+    # while True:
+    #     res = driver.execute_script("return playing;")
+    #     print(res)
+    #     if res:
+    #         break
+
     while True:
-        if driver.execute_script("return playing;"):
+        res = driver.execute_script("return (typeof score !== 'undefined')")
+        if res:
             break
 
     while True:
         score = driver.execute_script("return score;")
+        print(score)
