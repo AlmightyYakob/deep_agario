@@ -11,7 +11,7 @@ black = "*"
 selenium = "*"
 mss = "*"
 python_dotenv = "*"
-gym-agario = {path = "./gym-agario",editable = true}
+gym-io = {path = "./gym-io",editable = true}
 pillow = "*"
 
 [requires]

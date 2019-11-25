@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "e3ac8577d810db171ed6d78d241fb9fe40b7df6e6dc81b7bfa68eda8d0db90a6"
+            "sha256": "0ee448dd2880b80daf779718700b70802cb78cceff9b17bbcba3e37a6466cc21"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -16,9 +16,9 @@
         ]
     },
     "default": {
-        "gym-agario": {
+        "gym-io": {
             "editable": true,
-            "path": "./gym-agario"
+            "path": "./gym-io"
         },
         "mss": {
             "hashes": [
