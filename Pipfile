@@ -11,6 +11,7 @@ black = "*"
 selenium = "*"
 mss = "*"
 python_dotenv = "*"
+gym = "*"
 gym-io = {path = "./gym-io",editable = true}
 pillow = "*"
 
