@@ -52,6 +52,23 @@ class SlitherIOEnv(Env):
     def reset_game(self):
         self.length = SLITHERIO_INITIAL_LENGTH
         self.playing = False
+        self.snake_exists = False
+        self.game_ready = False
+
+    def wait_for_existing_values(self):
+        if not self.playing:
+            play_button_element = self.wait.until(
+                presence_of_all_elements_located((By.CLASS_NAME, PLAY_BUTTON_CLASSNAME))
+            )[PLAY_BUTTON_CLASS_INDEX]
+            play_button_element.click()
+
+            self.playing = True
+
+        while not self.snake_exists:
+            if self.driver.execute_script("return snake;"):
+                self.snake_exists = True
+
+        self.game_ready = True
 
     def hide_overlay(self):
         self.driver.execute_script(
@@ -61,37 +78,30 @@ class SlitherIOEnv(Env):
             OVERLAY_INDICES,
         )
 
+    def get_score(self):
+        script = "return (Math.floor(15 * (fpsls[snake.sct] + snake.fam / fmlts[snake.sct] - 1) - 5) / 1)"
+        score = self.driver.execute_script(script)
+        return score
+
     def observe(self):
-        if not self.playing:
-            play_button_element = self.wait.until(
-                presence_of_all_elements_located((By.CLASS_NAME, PLAY_BUTTON_CLASSNAME))
-            )[PLAY_BUTTON_CLASS_INDEX]
-            play_button_element.click()
-
-            self.wait.until(
-                presence_of_element_located((By.CSS_SELECTOR, LENGTH_CSS_SELECTOR))
-            )
-            self.playing = True
-            # self.hide_overlay()
-
         shot = self.driver.get_screenshot_as_png()
         return shot
 
     def step(self, action):
+        if not self.game_ready:
+            self.wait_for_existing_values()
+
         obs = self.observe()
-        element_text = self.driver.find_element_by_css_selector(
-            LENGTH_CSS_SELECTOR
-        ).text
+        score = self.get_score()
+        print("Score:", score)
 
-        if not element_text:
-            print("Score not found in DOM!")
-            exit()
+        # Take action
+        # new_score = self.get_score()
+        # reward = new_score - score
+        # self.length = new_score
 
-        new_length = int(element_text)
-        print(new_length)
-
-        reward = new_length - self.length
-        self.length = new_length
+        # Placeholder
+        reward = 1
         return (obs, reward, False, {})
         # action is a
         # screenshot with selenium              (state)
