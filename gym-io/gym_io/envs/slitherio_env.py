@@ -5,7 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.expected_conditions import (
-    presence_of_element_located,
+    # presence_of_element_located,
     # element_to_be_clickable,
     presence_of_all_elements_located,
 )
@@ -79,7 +79,10 @@ class SlitherIOEnv(Env):
         )
 
     def get_score(self):
-        script = "return (Math.floor(15 * (fpsls[snake.sct] + snake.fam / fmlts[snake.sct] - 1) - 5) / 1)"
+        script = (
+            "return (Math.floor(15 * (fpsls[snake.sct]"
+            "+ snake.fam / fmlts[snake.sct] - 1) - 5) / 1)"
+        )
         score = self.driver.execute_script(script)
         return score
 
