@@ -1,4 +1,4 @@
-# Training a Neural Network to play Agar.io using Reinforcement Learning
+# Training a Neural Network to play [Slither.io](http://slither.io) using Reinforcement Learning
 
 ## Requirements
 * [Selenium chromedriver](https://sites.google.com/a/chromium.org/chromedriver/downloads)
