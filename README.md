@@ -10,9 +10,10 @@
 * [Agario driver that uses selenium](https://github.com/gsgalloway/agar-io-driver)
 * [Article on DDQNs](https://www.freecodecamp.org/news/improvements-in-deep-q-learning-dueling-double-dqn-prioritized-experience-replay-and-fixed-58b130cc5682/)
 * [Actor-Critic](https://sergioskar.github.io/Actor_critics/)
+* [Repo with an implementation of A3C](https://github.com/germain-hug/Deep-RL-Keras)
 
 
 ## TODO
-* Add action handling in env.step
-* Add image processing to observation (convert to np.array)
-* Find A3C implementation to use
+* [ ] Add action handling in env.step
+* [ ] Add image processing to observation (convert to np.array)
+* [x] Find A3C implementation to use
