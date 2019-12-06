@@ -2,6 +2,8 @@
 
 ## Requirements
 * [Selenium chromedriver](https://sites.google.com/a/chromium.org/chromedriver/downloads)
+* Tensorflow (may need to roll back from 2.0.0 to 2.0.0-beta, due to keras-rl reqs)
+
 
 ## Resources
 * [Not working example but has some reference code](https://botfather.io/docs/wizard/simple-agario-bot-tutorial/)

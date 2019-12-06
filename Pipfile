@@ -12,6 +12,7 @@ selenium = "*"
 mss = "*"
 python_dotenv = "*"
 gym = "*"
+keras-rl = "*"
 gym-io = {path = "./gym-io",editable = true}
 pillow = "*"
 opencv-python = "*"
