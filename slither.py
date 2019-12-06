@@ -2,8 +2,8 @@ import gym
 import gym_io # NOQA
 
 
-env = gym.make("slitherio-v0")
-# env = gym.make("slitherio-v0", headless=False)
+# env = gym.make("slitherio-v0")
+env = gym.make("slitherio-v0", headless=False)
 obs = env.reset()
 
 while True:

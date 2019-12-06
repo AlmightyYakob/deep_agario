@@ -14,6 +14,10 @@ from selenium.webdriver.support.expected_conditions import (
     presence_of_all_elements_located,
 )
 
+from PIL import Image
+from io import BytesIO
+import cv2
+
 
 SLITHERIO_URL = "https://slither.io"
 SLITHERIO_CONNECTION_TIMEOUT_SECONDS = 15
@@ -29,8 +33,10 @@ JS_MOUSE_VAR = "window.mouse"
 
 # Num degrees + the boost action
 DEGREE_GRANULARITY = 360
-NUM_ACTIONS = DEGREE_GRANULARITY + 1
-MOUSE_RADIUS_FRACTION = 0.1
+# NUM_ACTIONS = DEGREE_GRANULARITY + 1
+NUM_ACTIONS = DEGREE_GRANULARITY
+
+MOUSE_RADIUS_FRACTION = 0.25
 
 DEFAULT_CHROME_OPTIONS = {"width": 300, "height": 300, "headless": True}
 
@@ -78,34 +84,14 @@ class SlitherIOEnv(Env):
             low=0, high=255, shape=(*self.window_size, 1), dtype=np.uint8
         )
 
-        self.inject_mouse_tracking_script()
-        self.center_mouse()
-
     def reset_game(self):
         self.length = SLITHERIO_INITIAL_LENGTH
         self.playing = False
         self.snake_exists = False
         self.game_ready = False
 
-    def inject_mouse_tracking_script(self):
-        self.driver.execute_script(
-            f"let currentFunc = onmousemove;"
-            f"{JS_MOUSE_VAR} = {{x: 0, y: 0}};"
-            f"onmousemove = function(e){{ currentFunc(e); {JS_MOUSE_VAR}.x = e.clientX; {JS_MOUSE_VAR}.y = e.clientY }};"
-        )
-        self.actions.move_by_offset(1, 1).perform()
-
-    def center_mouse(self):
-        pos = self.get_mouse_pos()
-        while (pos != self.window_center):
-            print(pos)
-            pos = self.get_mouse_pos()
-            offset = (self.window_center[0] - pos[0], self.window_center[1] - pos[1])
-            self.actions.move_by_offset(*offset).perform()
-
-    def get_mouse_pos(self):
-        pos = self.driver.execute_script(f"return {JS_MOUSE_VAR};")
-        return (pos["x"], pos["y"])
+    def set_mouse_pos(self, pos):
+        self.driver.execute_script(f"xm = {int(pos[0])}; ym = {int(pos[1])};")
 
     def wait_for_existing_values(self):
         if not self.playing:
@@ -140,64 +126,54 @@ class SlitherIOEnv(Env):
 
     def observe(self):
         shot = self.driver.get_screenshot_as_png()
-        return shot
+
+        # Also try with Image.frombytes
+        # image = Image.frombytes(mode, size, shot)
+        image = Image.open(BytesIO(shot))
+
+        np_image = np.array(image)
+        grayscale = cv2.cvtColor(np_image, cv2.COLOR_RGB2GRAY)
+        return grayscale
 
     def step(self, action):
+        """
+        Move the snake in the direction represented by action
+
+        observation - Screenshot with selenium
+        reward      - The change in reward after taken action
+        """
+
         if not self.game_ready:
             self.wait_for_existing_values()
 
-        # obs = self.observe()
-        obs = 1
-
         score = self.get_score()
-        # print("Score:", score)
 
-        # Take action
-        if action == self.action_space.n:
-            # Special action
-            pass
-        else:
-            radians = math.radians(action)
-            print("action = ", action)
-            print("radians = ", radians)
-            print("cos = ", math.cos(radians))
-            print("sin = ", math.sin(radians))
+        # # Special action, currently ignore
+        # if action == (self.action_space.n - 1):
+        #     # self.actions.click()
+        #     pass
+        # else:
 
-            target = (
-                self.window_center[0] + math.cos(radians) * self.mouse_radius,
-                self.window_center[1] + math.sin(radians) * self.mouse_radius,
-            )
+        radians = math.radians(action)
+        target = (
+            self.window_center[0] + math.cos(radians) * self.mouse_radius,
+            self.window_center[1] + math.sin(radians) * self.mouse_radius,
+        )
 
-            mouse_pos = self.get_mouse_pos()
+        offset = (
+            target[0] - self.window_center[0],
+            target[1] - self.window_center[1],
+        )
 
-            offset = (target[0] - mouse_pos[0], target[1] - mouse_pos[1])
-            offset = (offset[0]/10, offset[1]/10)
+        self.set_mouse_pos(offset)
 
-            print("WINDOW SIZE:", self.window_size)
-            print("POS:", mouse_pos)
-            print("TARGET:", target)
-            print("OFFSET:", offset)
-            print("MATH:", (offset[0] + mouse_pos[0], offset[1] + mouse_pos[1]))
-            self.actions.move_by_offset(*offset).perform()
+        obs = self.observe()
+        new_score = self.get_score()
+        reward = new_score - score
 
-            # self.actions.move_by_offset(target[0]/100, target[1]/100).perform()
-            # self.driver.
-            # print(new_mouse_x, new_mouse_y)
+        print(reward)
 
-        # new_score = self.get_score()
-        # reward = new_score - score
-        # self.length = new_score
-
-        # Placeholder
-        reward = 1
         return (obs, reward, False, {})
-        # action is a
-        # screenshot with selenium              (state)
-        # Get current score = r0 with selenium
-        # Take provided action with selenium    (action)
-        # Get current score = r1 with selenium
-        # Calculate reward = r1 - r0            (reward)
-        # screenshot with selenium              (next state)
 
     def reset(self):
         self.reset_game()
