@@ -7,4 +7,7 @@ env = gym.make("slitherio-v0", headless=False)
 obs = env.reset()
 
 while True:
-    res = env.step(env.action_space.sample())
+    obs, r, done, _ = env.step(env.action_space.sample())
+
+    if done:
+        break

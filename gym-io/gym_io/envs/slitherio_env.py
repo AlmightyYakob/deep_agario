@@ -90,6 +90,13 @@ class SlitherIOEnv(Env):
         self.snake_exists = False
         self.game_ready = False
 
+    def get_playing_status(self):
+        return self.driver.execute_script("return playing;")
+
+    def snake_is_dead(self):
+        res = int(self.driver.execute_script("return snake.dead_amt;"))
+        return bool(res)
+
     def set_mouse_pos(self, pos):
         self.driver.execute_script(f"xm = {int(pos[0])}; ym = {int(pos[1])};")
 
@@ -135,25 +142,7 @@ class SlitherIOEnv(Env):
         grayscale = cv2.cvtColor(np_image, cv2.COLOR_RGB2GRAY)
         return grayscale
 
-    def step(self, action):
-        """
-        Move the snake in the direction represented by action
-
-        observation - Screenshot with selenium
-        reward      - The change in reward after taken action
-        """
-
-        if not self.game_ready:
-            self.wait_for_existing_values()
-
-        score = self.get_score()
-
-        # # Special action, currently ignore
-        # if action == (self.action_space.n - 1):
-        #     # self.actions.click()
-        #     pass
-        # else:
-
+    def take_action(self, action):
         radians = math.radians(action)
         target = (
             self.window_center[0] + math.cos(radians) * self.mouse_radius,
@@ -167,13 +156,44 @@ class SlitherIOEnv(Env):
 
         self.set_mouse_pos(offset)
 
+    def step(self, action):
+        """
+        Move the snake in the direction represented by action
+
+        observation - Screenshot with selenium
+        reward      - The change in reward after taken action
+        """
+
+        if not self.game_ready:
+            self.wait_for_existing_values()
+
+        if not self.get_playing_status() or self.snake_is_dead():
+            # Dead before any action actually taken, so neutral reward
+            return (self.observe(), 0, True, {})
+
+        score = self.get_score()
+
+        # # Special action, currently ignore
+        # if action == (self.action_space.n - 1):
+        #     # self.actions.click()
+        #     pass
+        # else:
+
+        self.take_action(action)
+
+        # Take screenshot
         obs = self.observe()
-        new_score = self.get_score()
-        reward = new_score - score
+
+        done = False
+        if self.snake_is_dead():
+            reward = -score
+            done = True
+        else:
+            new_score = self.get_score()
+            reward = new_score - score
 
         print(reward)
-
-        return (obs, reward, False, {})
+        return (obs, reward, done, {})
 
     def reset(self):
         self.reset_game()
