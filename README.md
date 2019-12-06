@@ -14,6 +14,7 @@
 
 
 ## TODO
-* [ ] Add action handling in env.step
-* [ ] Add image processing to observation (convert to np.array)
+* [x] Add action handling in env.step
+* [x] Add image processing to observation (convert to np.array)
 * [x] Find A3C implementation to use
+* [ ] Use env with A3C model
