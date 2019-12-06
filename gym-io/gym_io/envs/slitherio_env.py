@@ -197,7 +197,7 @@ class SlitherIOEnv(Env):
 
     def reset(self):
         self.reset_game()
-        # Observe
+        return self.observe()
 
     def render(self, mode="human", close=False):
         # Probably ignore for now
