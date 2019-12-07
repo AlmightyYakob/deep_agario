@@ -12,10 +12,14 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras.losses import categorical_crossentropy
 from keras.optimizers import Adam
 
+from keras import backend as K
 
-def conv_model(env, frame_stack=1):
-    # input_shape = (frame_stack, *env.observation_space.shape)
-    input_shape = env.observation_space.shape
+
+K.set_image_data_format('channels_first')
+
+
+def conv_model(env):
+    input_shape = (1,) + env.observation_space.shape[:2]
     num_actions = env.action_space.n
 
     model = Sequential()
@@ -45,36 +49,31 @@ def conv_model(env, frame_stack=1):
     )
     return model
 
+try:
+    env = gym.make("slitherio-v0")
+    # env = gym.make("slitherio-v0", headless=False, width=600, height=600)
 
-# env = gym.make("slitherio-v0")
-env = gym.make("slitherio-v0", headless=True)
-obs = env.reset()
+    model = conv_model(env)
+    # print(model.summary())
 
-model = conv_model(env)
-print(model.summary())
+    policy = EpsGreedyQPolicy(eps=0.1)
+    memory = SequentialMemory(limit=100, window_length=1)
+    dqn = DQNAgent(
+        model=model,
+        nb_actions=env.action_space.n,
+        memory=memory,
+        nb_steps_warmup=100,
+        target_model_update=1e-2,
+        policy=policy,
+    )
+    dqn.compile(Adam(lr=1e-3), metrics=["mae"])
+    dqn.fit(env, nb_steps=5000, visualize=False, verbose=1)
 
-policy = EpsGreedyQPolicy(eps=0.1)
-memory = SequentialMemory(limit=10000, window_length=1)
-dqn = DQNAgent(
-    model=model,
-    nb_actions=env.action_space.n,
-    memory=memory,
-    nb_steps_warmup=10,
-    target_model_update=1e-2,
-    policy=policy,
-)
+    env.reset()
+    dqn.test(env, nb_episodes=5, visualize=True)
 
-dqn.compile(Adam(lr=1e-3), metrics=["mae"])
-dqn.fit(env, nb_steps=5000, visualize=False, verbose=1)
+    env.close()
 
-env.reset()
-dqn.test(env, nb_episodes=5, visualize=True)
-
-env.close()
-
-
-while True:
-    obs, r, done, _ = env.step(env.action_space.sample())
-
-    if done:
-        break
+except Exception as e:
+    print(e)
+    env.driver.quit()

@@ -85,6 +85,7 @@ class SlitherIOEnv(Env):
         )
 
     def reset_game(self):
+        self.driver.refresh()
         self.length = SLITHERIO_INITIAL_LENGTH
         self.playing = False
         self.snake_exists = False
@@ -188,9 +189,11 @@ class SlitherIOEnv(Env):
         if self.snake_is_dead():
             reward = -score
             done = True
+            print("dead")
         else:
             new_score = self.get_score()
             reward = new_score - score
+            # print("alive")
 
         print(reward)
         return (obs, reward, done, {})
