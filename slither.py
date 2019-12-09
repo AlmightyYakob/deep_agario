@@ -14,23 +14,25 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras.losses import categorical_crossentropy
 from keras.optimizers import Adam
 
-from keras import backend as K
+# from keras import backend as K
 # K.set_image_data_format('channels_first')
 
 
 DQN_MEMORY_SIZE = 100
 
+
 class CustomProcessor(Processor):
-    '''
+    """
     acts as a coupling mechanism between the agent and the environment
-    '''
+    """
+
     def process_state_batch(self, batch):
-        '''
+        """
         Given a state batch, I want to remove the second dimension, because it's
         useless and prevents me from feeding the tensor into my CNN
-        '''
+        """
         squeezed = np.squeeze(batch, axis=1)
-        reshaped = np.reshape(yeet, newshape=(*yeet.shape, 1))
+        reshaped = np.reshape(squeezed, newshape=(*squeezed.shape, 1))
         return reshaped
 
 
@@ -59,11 +61,10 @@ def conv_model(env):
     model.add(Dense(num_actions, activation="softmax"))
 
     model.compile(
-        loss=categorical_crossentropy,
-        optimizer=Adam(),
-        metrics=["accuracy"],
+        loss=categorical_crossentropy, optimizer=Adam(), metrics=["accuracy"],
     )
     return model
+
 
 try:
     # env = gym.make("AirRaid-v0")
@@ -82,7 +83,7 @@ try:
         nb_steps_warmup=DQN_MEMORY_SIZE,
         target_model_update=1e-2,
         policy=policy,
-        processor=CustomProcessor()
+        processor=CustomProcessor(),
     )
     dqn.compile(Adam(lr=1e-3), metrics=["mae"])
     dqn.fit(env, nb_steps=5000, visualize=False, verbose=1)
