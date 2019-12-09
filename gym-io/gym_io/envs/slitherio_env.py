@@ -24,7 +24,7 @@ SLITHERIO_CONNECTION_TIMEOUT_SECONDS = 15
 SLITHERIO_INITIAL_LENGTH = 10
 
 PLAY_BUTTON_CLASSNAME = "nsi"
-PLAY_BUTTON_CLASS_INDEX = 2
+PLAY_BUTTON_CLASS_INDEX = 2 
 
 OVERLAY_CSS_SELECTOR = "div.nsi"
 OVERLAY_INDICES = [12, 13, 14, 15, 16, 17]
@@ -32,25 +32,17 @@ OVERLAY_INDICES = [12, 13, 14, 15, 16, 17]
 JS_MOUSE_VAR = "window.mouse"
 
 # Num degrees + the boost action
-DEGREE_GRANULARITY = 360
-# NUM_ACTIONS = DEGREE_GRANULARITY + 1
-NUM_ACTIONS = DEGREE_GRANULARITY
+# DEGREE_GRANULARITY = 360
+DEGREE_GRANULARITY = 12
+NUM_EXTRA_ACTIONS = 0
 
 MOUSE_RADIUS_FRACTION = 0.25
 
-DEFAULT_CHROME_OPTIONS = {"width": 300, "height": 300, "headless": True}
+DEFAULT_CHROME_OPTIONS = {"width": 300, "height": 300, "granularity": DEGREE_GRANULARITY, "headless": True}
 
 
 class SlitherIOEnv(Env):
     metadata = {"render.modes": ["human"]}
-
-    # TBD, need to figure out full observation space
-    # observation_space =
-    # observation_space.shape =
-
-    # Representing degrees to move mouse, might change
-    action_space = spaces.Discrete(NUM_ACTIONS)
-    action_space.shape = (1, NUM_ACTIONS)
 
     def __init__(self, **kwargs):
         options = {**DEFAULT_CHROME_OPTIONS, **kwargs}
@@ -64,6 +56,9 @@ class SlitherIOEnv(Env):
             f"window-size={desired_window_width},{desired_window_height}"
         )
 
+        self.action_space = spaces.Discrete(options["granularity"] + NUM_EXTRA_ACTIONS)
+        self.action_space.shape = (1, self.action_space.n)
+
         if headless:
             chrome_options.add_argument("--headless")
 
@@ -73,41 +68,52 @@ class SlitherIOEnv(Env):
 
         # Initialize connection
         self.driver.get(SLITHERIO_URL)
+        self.reset_game()
 
-        size = self.driver.get_window_size()
-        self.window_size = (size["width"], size["height"])
-        self.window_center = (self.window_size[0] / 2, self.window_size[1] / 2)
+        # size = self.driver.get_window_size()
+        width, height = self.get_inner_window_size()
+
+        self.window_size = (width, height)
+        self.window_center = (width / 2, height / 2)
         self.mouse_radius = MOUSE_RADIUS_FRACTION * min(self.window_size)
         print("radius = ", self.mouse_radius)
 
         self.observation_space = spaces.Box(
-            low=0, high=255, shape=(*self.window_size, 1), dtype=np.uint8
+            low=0, high=255, shape=(*self.window_size[::-1], 1), dtype=np.uint8
         )
+
 
     def reset_game(self):
         self.driver.refresh()
-        self.length = SLITHERIO_INITIAL_LENGTH
         self.playing = False
+        self.overlay_hidden = False
         self.snake_exists = False
         self.game_ready = False
 
     def get_playing_status(self):
         return self.driver.execute_script("return playing;")
-
+    
     def snake_is_dead(self):
-        res = int(self.driver.execute_script("return snake.dead_amt;"))
-        return bool(res)
+        snake_object_is_null = bool(self.driver.execute_script("return snake === null;"))
+        if snake_object_is_null:
+            return True
+
+        snake_is_dead = bool(int(self.driver.execute_script("return snake.dead_amt;")))
+        return snake_is_dead
+
+    def get_inner_window_size(self):
+        return tuple(self.driver.execute_script("return [window.innerWidth, window.innerHeight];"))
 
     def set_mouse_pos(self, pos):
         self.driver.execute_script(f"xm = {int(pos[0])}; ym = {int(pos[1])};")
 
-    def wait_for_existing_values(self):
+    def wait_until_game_ready(self):
         if not self.playing:
             play_button_element = self.wait.until(
                 presence_of_all_elements_located((By.CLASS_NAME, PLAY_BUTTON_CLASSNAME))
             )[PLAY_BUTTON_CLASS_INDEX]
-            play_button_element.click()
 
+            play_button_element.click()
             self.playing = True
 
         while not self.snake_exists:
@@ -123,6 +129,10 @@ class SlitherIOEnv(Env):
             OVERLAY_CSS_SELECTOR,
             OVERLAY_INDICES,
         )
+        self.overlay_hidden = True
+
+    def set_low_quality(self):
+        self.driver.execute_script("high_quality = false;")
 
     def get_score(self):
         script = (
@@ -144,7 +154,10 @@ class SlitherIOEnv(Env):
         return grayscale
 
     def take_action(self, action):
-        radians = math.radians(action)
+        degrees = (action/self.action_space.n)*360
+        radians = math.radians(degrees)
+        print(f"\naction: {action}, degrees: {degrees}, radians: {radians}")
+
         target = (
             self.window_center[0] + math.cos(radians) * self.mouse_radius,
             self.window_center[1] + math.sin(radians) * self.mouse_radius,
@@ -155,31 +168,32 @@ class SlitherIOEnv(Env):
             target[1] - self.window_center[1],
         )
 
+        # offset = (
+        #     target[0],
+        #     target[1],
+        # )
+
         self.set_mouse_pos(offset)
 
     def step(self, action):
         """
         Move the snake in the direction represented by action
 
+        action      - A number representing an angle to point the snake in
         observation - Screenshot with selenium
         reward      - The change in reward after taken action
         """
 
         if not self.game_ready:
-            self.wait_for_existing_values()
+            self.wait_until_game_ready()
+            self.hide_overlay()
+            self.set_low_quality()
 
         if not self.get_playing_status() or self.snake_is_dead():
             # Dead before any action actually taken, so neutral reward
             return (self.observe(), 0, True, {})
 
         score = self.get_score()
-
-        # # Special action, currently ignore
-        # if action == (self.action_space.n - 1):
-        #     # self.actions.click()
-        #     pass
-        # else:
-
         self.take_action(action)
 
         # Take screenshot
@@ -189,13 +203,12 @@ class SlitherIOEnv(Env):
         if self.snake_is_dead():
             reward = -score
             done = True
-            print("dead")
+            print(f"\n{'-'*10}DEAD{'-'*10}\n")
         else:
             new_score = self.get_score()
             reward = new_score - score
-            # print("alive")
 
-        print(reward)
+        # print("\n--------Reward:", reward)
         return (obs, reward, done, {})
 
     def reset(self):
@@ -205,3 +218,6 @@ class SlitherIOEnv(Env):
     def render(self, mode="human", close=False):
         # Probably ignore for now
         pass
+    
+    def close(self):
+        self.driver.quit()

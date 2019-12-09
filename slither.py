@@ -8,6 +8,7 @@ from rl.agents.dqn import DQNAgent
 from rl.policy import EpsGreedyQPolicy
 from rl.memory import SequentialMemory
 from rl.core import Processor
+from rl.callbacks import ModelIntervalCheckpoint
 
 from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D
@@ -19,7 +20,7 @@ from keras.optimizers import Adam
 
 
 DQN_MEMORY_SIZE = 100
-
+MODEL_SAVE_STEP_INTERVAL=20
 
 class CustomProcessor(Processor):
     """
@@ -68,8 +69,10 @@ def conv_model(env):
 
 try:
     # env = gym.make("AirRaid-v0")
-    env = gym.make("slitherio-v0")
-    # env = gym.make("slitherio-v0", headless=False, width=500, height=500)
+    # env = gym.make("slitherio-v0")
+    env = gym.make("slitherio-v0", headless=False, width=500, height=500)
+
+    model_callbacks = [ModelIntervalCheckpoint("current_model.h5", interval=MODEL_SAVE_STEP_INTERVAL, verbose=0)]
 
     model = conv_model(env)
     # print(model.summary())
@@ -80,13 +83,13 @@ try:
         model=model,
         nb_actions=env.action_space.n,
         memory=memory,
-        nb_steps_warmup=DQN_MEMORY_SIZE,
+        # nb_steps_warmup=DQN_MEMORY_SIZE,
         target_model_update=1e-2,
         policy=policy,
         processor=CustomProcessor(),
     )
     dqn.compile(Adam(lr=1e-3), metrics=["mae"])
-    dqn.fit(env, nb_steps=5000, visualize=False, verbose=1)
+    dqn.fit(env, nb_steps=1000, visualize=False, verbose=1, callbacks=model_callbacks)
 
     env.reset()
     dqn.test(env, nb_episodes=5, visualize=True)
@@ -94,5 +97,5 @@ try:
     env.close()
 
 except Exception as e:
+    env.close()
     print(e)
-    env.driver.quit()
