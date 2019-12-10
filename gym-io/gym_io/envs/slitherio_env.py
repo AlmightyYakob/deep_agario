@@ -9,8 +9,6 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.expected_conditions import (
-    # presence_of_element_located,
-    # element_to_be_clickable,
     presence_of_all_elements_located,
 )
 
@@ -21,18 +19,13 @@ import cv2
 
 SLITHERIO_URL = "https://slither.io"
 SLITHERIO_CONNECTION_TIMEOUT_SECONDS = 15
-SLITHERIO_INITIAL_LENGTH = 10
 
 PLAY_BUTTON_CLASSNAME = "nsi"
 PLAY_BUTTON_CLASS_INDEX = 2 
 
 OVERLAY_CSS_SELECTOR = "div.nsi"
-OVERLAY_INDICES = [12, 13, 14, 15, 16, 17]
+OVERLAY_INDICES = [12, 13, 14, 15, 16, 17, 18]
 
-JS_MOUSE_VAR = "window.mouse"
-
-# Num degrees + the boost action
-# DEGREE_GRANULARITY = 360
 DEGREE_GRANULARITY = 12
 NUM_EXTRA_ACTIONS = 0
 
@@ -70,7 +63,6 @@ class SlitherIOEnv(Env):
         self.driver.get(SLITHERIO_URL)
         self.reset_game()
 
-        # size = self.driver.get_window_size()
         width, height = self.get_inner_window_size()
 
         self.window_size = (width, height)
@@ -144,11 +136,7 @@ class SlitherIOEnv(Env):
 
     def observe(self):
         shot = self.driver.get_screenshot_as_png()
-
-        # Also try with Image.frombytes
-        # image = Image.frombytes(mode, size, shot)
         image = Image.open(BytesIO(shot))
-
         np_image = np.array(image)
         grayscale = cv2.cvtColor(np_image, cv2.COLOR_RGB2GRAY)
         return grayscale
@@ -156,23 +144,16 @@ class SlitherIOEnv(Env):
     def take_action(self, action):
         degrees = (action/self.action_space.n)*360
         radians = math.radians(degrees)
-        print(f"\naction: {action}, degrees: {degrees}, radians: {radians}")
 
         target = (
             self.window_center[0] + math.cos(radians) * self.mouse_radius,
-            self.window_center[1] + math.sin(radians) * self.mouse_radius,
+            self.window_center[1] - math.sin(radians) * self.mouse_radius,
         )
 
         offset = (
             target[0] - self.window_center[0],
             target[1] - self.window_center[1],
         )
-
-        # offset = (
-        #     target[0],
-        #     target[1],
-        # )
-
         self.set_mouse_pos(offset)
 
     def step(self, action):
@@ -208,7 +189,6 @@ class SlitherIOEnv(Env):
             new_score = self.get_score()
             reward = new_score - score
 
-        # print("\n--------Reward:", reward)
         return (obs, reward, done, {})
 
     def reset(self):

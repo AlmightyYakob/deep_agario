@@ -77,7 +77,7 @@ try:
     model = conv_model(env)
     # print(model.summary())
 
-    policy = EpsGreedyQPolicy(eps=0.1)
+    policy = EpsGreedyQPolicy(eps=0.2)
     memory = SequentialMemory(limit=DQN_MEMORY_SIZE, window_length=1)
     dqn = DQNAgent(
         model=model,
