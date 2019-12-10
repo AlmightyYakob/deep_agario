@@ -39,7 +39,7 @@ def deprocess_image(x):
     """
     # normalize tensor: center on 0., ensure std is 0.25
     x -= x.mean()
-    x /= (x.std() + K.epsilon())
+    x /= x.std() + K.epsilon()
     x *= 0.25
 
     # clip to [0, 1]
@@ -48,9 +48,9 @@ def deprocess_image(x):
 
     # convert to RGB array
     x *= 255
-    if K.image_data_format() == 'channels_first':
+    if K.image_data_format() == "channels_first":
         x = x.transpose((1, 2, 0))
-    x = np.clip(x, 0, 255).astype('uint8')
+    x = np.clip(x, 0, 255).astype("uint8")
     return x
 
 
@@ -66,19 +66,21 @@ def process_image(x, former):
     # Returns
         A processed numpy-array representing the generated image.
     """
-    if K.image_data_format() == 'channels_first':
+    if K.image_data_format() == "channels_first":
         x = x.transpose((2, 0, 1))
     return (x / 255 - 0.5) * 4 * former.std() + former.mean()
 
 
-def visualize_layer(model,
-                    layer_name,
-                    step=1.,
-                    epochs=15,
-                    upscaling_steps=9,
-                    upscaling_factor=1.2,
-                    output_dim=(412, 412),
-                    filter_range=(0, None)):
+def visualize_layer(
+    model,
+    layer_name,
+    step=1.0,
+    epochs=15,
+    upscaling_steps=9,
+    upscaling_factor=1.2,
+    output_dim=(412, 412),
+    filter_range=(0, None),
+):
     """Visualizes the most relevant filters of one conv-layer in a certain model.
 
     # Arguments
@@ -98,9 +100,7 @@ def visualize_layer(model,
                       the last filter will be inferred as the upper boundary.
     """
 
-    def _generate_filter_image(input_img,
-                               layer_output,
-                               filter_index):
+    def _generate_filter_image(input_img, layer_output, filter_index):
         """Generates image for one particular filter.
 
         # Arguments
@@ -117,7 +117,7 @@ def visualize_layer(model,
 
         # we build a loss function that maximizes the activation
         # of the nth filter of the layer considered
-        if K.image_data_format() == 'channels_first':
+        if K.image_data_format() == "channels_first":
             loss = K.mean(layer_output[:, filter_index, :, :])
         else:
             loss = K.mean(layer_output[:, :, :, filter_index])
@@ -133,13 +133,16 @@ def visualize_layer(model,
 
         # we start from a gray image with some random noise
         intermediate_dim = tuple(
-            int(x / (upscaling_factor ** upscaling_steps)) for x in output_dim)
-        if K.image_data_format() == 'channels_first':
+            int(x / (upscaling_factor ** upscaling_steps)) for x in output_dim
+        )
+        if K.image_data_format() == "channels_first":
             input_img_data = np.random.random(
-                (1, 3, intermediate_dim[0], intermediate_dim[1]))
+                (1, 3, intermediate_dim[0], intermediate_dim[1])
+            )
         else:
             input_img_data = np.random.random(
-                (1, intermediate_dim[0], intermediate_dim[1], 3))
+                (1, intermediate_dim[0], intermediate_dim[1], 3)
+            )
         input_img_data = (input_img_data - 0.5) * 20 + 128
 
         # Slowly upscaling towards the original size prevents
@@ -159,20 +162,23 @@ def visualize_layer(model,
 
             # Calculate upscaled dimension
             intermediate_dim = tuple(
-                int(x / (upscaling_factor ** up)) for x in output_dim)
+                int(x / (upscaling_factor ** up)) for x in output_dim
+            )
             # Upscale
             img = deprocess_image(input_img_data[0])
-            img = np.array(pil_image.fromarray(img).resize(intermediate_dim,
-                                                           pil_image.BICUBIC))
-            input_img_data = np.expand_dims(
-                process_image(img, input_img_data[0]), 0)
+            img = np.array(
+                pil_image.fromarray(img).resize(intermediate_dim, pil_image.BICUBIC)
+            )
+            input_img_data = np.expand_dims(process_image(img, input_img_data[0]), 0)
 
         # decode the resulting input image
         img = deprocess_image(input_img_data[0])
         e_time = time.time()
-        print('Costs of filter {:3}: {:5.0f} ( {:4.2f}s )'.format(filter_index,
-                                                                  loss_value,
-                                                                  e_time - s_time))
+        print(
+            "Costs of filter {:3}: {:5.0f} ( {:4.2f}s )".format(
+                filter_index, loss_value, e_time - s_time
+            )
+        )
         return img, loss_value
 
     def _draw_filters(filters, n=None):
@@ -190,14 +196,14 @@ def visualize_layer(model,
         # the filters that have the highest loss are assumed to be better-looking.
         # we will only keep the top n*n filters.
         filters.sort(key=lambda x: x[1], reverse=True)
-        filters = filters[:n * n]
+        filters = filters[: n * n]
 
         # build a black picture with enough space for
         # e.g. our 8 x 8 filters of size 412 x 412, with a 5px margin in between
         MARGIN = 5
         width = n * output_dim[0] + (n - 1) * MARGIN
         height = n * output_dim[1] + (n - 1) * MARGIN
-        stitched_filters = np.zeros((width, height, 3), dtype='uint8')
+        stitched_filters = np.zeros((width, height, 3), dtype="uint8")
 
         # fill the picture with our saved filters
         for i in range(n):
@@ -206,11 +212,13 @@ def visualize_layer(model,
                 width_margin = (output_dim[0] + MARGIN) * i
                 height_margin = (output_dim[1] + MARGIN) * j
                 stitched_filters[
-                    width_margin: width_margin + output_dim[0],
-                    height_margin: height_margin + output_dim[1], :] = img
+                    width_margin : width_margin + output_dim[0],
+                    height_margin : height_margin + output_dim[1],
+                    :,
+                ] = img
 
         # save the result to disk
-        save_img('vgg_{0:}_{1:}x{1:}.png'.format(layer_name, n), stitched_filters)
+        save_img("vgg_{0:}_{1:}x{1:}.png".format(layer_name, n), stitched_filters)
 
     # this is the placeholder for the input images
     assert len(model.inputs) == 1
@@ -224,13 +232,17 @@ def visualize_layer(model,
 
     # Compute to be processed filter range
     filter_lower = filter_range[0]
-    filter_upper = (filter_range[1]
-                    if filter_range[1] is not None
-                    else len(output_layer.get_weights()[1]))
-    assert(filter_lower >= 0
-           and filter_upper <= len(output_layer.get_weights()[1])
-           and filter_upper > filter_lower)
-    print('Compute filters {:} to {:}'.format(filter_lower, filter_upper))
+    filter_upper = (
+        filter_range[1]
+        if filter_range[1] is not None
+        else len(output_layer.get_weights()[1])
+    )
+    assert (
+        filter_lower >= 0
+        and filter_upper <= len(output_layer.get_weights()[1])
+        and filter_upper > filter_lower
+    )
+    print("Compute filters {:} to {:}".format(filter_lower, filter_upper))
 
     # iterate through each filter and generate its corresponding image
     processed_filters = []
@@ -240,16 +252,16 @@ def visualize_layer(model,
         if img_loss is not None:
             processed_filters.append(img_loss)
 
-    print('{} filter processed.'.format(len(processed_filters)))
+    print("{} filter processed.".format(len(processed_filters)))
     # Finally draw and store the best filters to disk
     _draw_filters(processed_filters)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # the name of the layer we want to visualize
     # (see model definition at keras/applications/vgg16.py)
-    LAYER_NAME = 'conv2d_3'
-    
+    LAYER_NAME = "conv2d_3"
+
     from slither import conv_model
     import gym
     import gym_io
@@ -257,10 +269,10 @@ if __name__ == '__main__':
     env = gym.make("slitherio-v0", headless=False, width=500, height=500)
     model = conv_model(env)
     model.load_weights("current_model.h5")
-    
+
     # build the VGG16 network with ImageNet weights
     # vgg = vgg16.VGG16(weights='imagenet', include_top=False)
-    print('Model loaded.')
+    print("Model loaded.")
     model.summary()
 
     # example function call

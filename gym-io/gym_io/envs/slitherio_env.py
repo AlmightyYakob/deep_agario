@@ -21,7 +21,7 @@ SLITHERIO_URL = "https://slither.io"
 SLITHERIO_CONNECTION_TIMEOUT_SECONDS = 15
 
 PLAY_BUTTON_CLASSNAME = "nsi"
-PLAY_BUTTON_CLASS_INDEX = 2 
+PLAY_BUTTON_CLASS_INDEX = 2
 
 OVERLAY_CSS_SELECTOR = "div.nsi"
 OVERLAY_INDICES = [12, 13, 14, 15, 16, 17, 18]
@@ -31,7 +31,12 @@ NUM_EXTRA_ACTIONS = 0
 
 MOUSE_RADIUS_FRACTION = 0.25
 
-DEFAULT_CHROME_OPTIONS = {"width": 300, "height": 300, "granularity": DEGREE_GRANULARITY, "headless": True}
+DEFAULT_CHROME_OPTIONS = {
+    "width": 300,
+    "height": 300,
+    "granularity": DEGREE_GRANULARITY,
+    "headless": True,
+}
 
 
 class SlitherIOEnv(Env):
@@ -74,7 +79,6 @@ class SlitherIOEnv(Env):
             low=0, high=255, shape=(*self.window_size[::-1], 1), dtype=np.uint8
         )
 
-
     def reset_game(self):
         self.driver.refresh()
         self.playing = False
@@ -84,9 +88,11 @@ class SlitherIOEnv(Env):
 
     def get_playing_status(self):
         return self.driver.execute_script("return playing;")
-    
+
     def snake_is_dead(self):
-        snake_object_is_null = bool(self.driver.execute_script("return snake === null;"))
+        snake_object_is_null = bool(
+            self.driver.execute_script("return snake === null;")
+        )
         if snake_object_is_null:
             return True
 
@@ -94,7 +100,11 @@ class SlitherIOEnv(Env):
         return snake_is_dead
 
     def get_inner_window_size(self):
-        return tuple(self.driver.execute_script("return [window.innerWidth, window.innerHeight];"))
+        return tuple(
+            self.driver.execute_script(
+                "return [window.innerWidth, window.innerHeight];"
+            )
+        )
 
     def set_mouse_pos(self, pos):
         self.driver.execute_script(f"xm = {int(pos[0])}; ym = {int(pos[1])};")
@@ -142,7 +152,7 @@ class SlitherIOEnv(Env):
         return grayscale
 
     def take_action(self, action):
-        degrees = (action/self.action_space.n)*360
+        degrees = (action / self.action_space.n) * 360
         radians = math.radians(degrees)
 
         target = (
@@ -198,6 +208,6 @@ class SlitherIOEnv(Env):
     def render(self, mode="human", close=False):
         # Probably ignore for now
         pass
-    
+
     def close(self):
         self.driver.quit()

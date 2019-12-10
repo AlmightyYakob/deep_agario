@@ -5,13 +5,13 @@ import numpy as np
 
 from keras.models import Sequential
 from rl.agents.dqn import DQNAgent
-from rl.policy import EpsGreedyQPolicy
+from rl.policy import EpsGreedyQPolicy, LinearAnnealedPolicy
 from rl.memory import SequentialMemory
 from rl.core import Processor
 from rl.callbacks import ModelIntervalCheckpoint
 
-from keras.layers import Dense, Dropout, Flatten
-from keras.layers import Conv2D, MaxPooling2D
+from keras.layers import Dense, Dropout, Flatten, TimeDistributed
+from keras.layers import Conv2D, MaxPooling2D, LSTM
 from keras.losses import categorical_crossentropy
 from keras.optimizers import Adam
 
@@ -20,7 +20,11 @@ from keras.optimizers import Adam
 
 
 DQN_MEMORY_SIZE = 100
-MODEL_SAVE_STEP_INTERVAL=20
+MODEL_SAVE_STEP_INTERVAL = 50
+# SAVED_MODEL_NAME = "current_model.h5"
+SAVED_MODEL_NAME = "new_current_model.h5"
+NSTEPS = 10000
+
 
 class CustomProcessor(Processor):
     """
@@ -37,7 +41,7 @@ class CustomProcessor(Processor):
         return reshaped
 
 
-def conv_model(env):
+def base_conv_model(env):
     input_shape = env.observation_space.shape
     num_actions = env.action_space.n
 
@@ -60,42 +64,75 @@ def conv_model(env):
     model.add(Dense(128, activation="relu"))
     model.add(Dropout(0.3))
     model.add(Dense(num_actions, activation="softmax"))
+    return model
 
+
+def conv_model(env):
+    model = base_conv_model(env)
     model.compile(
         loss=categorical_crossentropy, optimizer=Adam(), metrics=["accuracy"],
     )
     return model
 
 
-try:
-    # env = gym.make("AirRaid-v0")
-    # env = gym.make("slitherio-v0")
-    env = gym.make("slitherio-v0", headless=False, width=500, height=500)
+def lstm_conv_model(env):
+    model = Sequential()
+    model.add(TimeDistributed(base_conv_model(env)))
+    model.add(LSTM())
 
-    model_callbacks = [ModelIntervalCheckpoint("current_model.h5", interval=MODEL_SAVE_STEP_INTERVAL, verbose=0)]
+    return model
 
-    model = conv_model(env)
-    # print(model.summary())
 
-    policy = EpsGreedyQPolicy(eps=0.2)
-    memory = SequentialMemory(limit=DQN_MEMORY_SIZE, window_length=1)
-    dqn = DQNAgent(
-        model=model,
-        nb_actions=env.action_space.n,
-        memory=memory,
-        # nb_steps_warmup=DQN_MEMORY_SIZE,
-        target_model_update=1e-2,
-        policy=policy,
-        processor=CustomProcessor(),
-    )
-    dqn.compile(Adam(lr=1e-3), metrics=["mae"])
-    dqn.fit(env, nb_steps=1000, visualize=False, verbose=1, callbacks=model_callbacks)
+def main():
+    try:
+        # env = gym.make("AirRaid-v0")
+        env = gym.make("slitherio-v0")
+        # env = gym.make("slitherio-v0", headless=False, width=500, height=500)
 
-    env.reset()
-    dqn.test(env, nb_episodes=5, visualize=True)
+        model_callbacks = [
+            ModelIntervalCheckpoint(
+                SAVED_MODEL_NAME, interval=MODEL_SAVE_STEP_INTERVAL, verbose=0
+            )
+        ]
 
-    env.close()
+        model = conv_model(env)
+        # print(model.summary())
 
-except Exception as e:
-    env.close()
-    print(e)
+        policy = LinearAnnealedPolicy(
+            EpsGreedyQPolicy(eps=0.1),
+            attr="eps",
+            value_max=1.0,
+            value_min=0.1,
+            value_test=0.1,
+            nb_steps=NSTEPS,
+        )
+        memory = SequentialMemory(limit=DQN_MEMORY_SIZE, window_length=1)
+        dqn = DQNAgent(
+            model=model,
+            nb_actions=env.action_space.n,
+            memory=memory,
+            # nb_steps_warmup=DQN_MEMORY_SIZE,
+            target_model_update=1e-2,
+            policy=policy,
+            enable_double_dqn=True,
+            # enable_dueling_network=True,
+            # dueling_type="avg",
+            processor=CustomProcessor(),
+        )
+        dqn.compile(Adam(lr=1e-3), metrics=["mae"])
+        dqn.fit(
+            env, nb_steps=NSTEPS, visualize=False, verbose=1, callbacks=model_callbacks
+        )
+
+        env.reset()
+        dqn.test(env, nb_episodes=5, visualize=True)
+
+        env.close()
+
+    except Exception as e:
+        env.close()
+        print(e)
+
+
+if __name__ == "__main__":
+    main()
