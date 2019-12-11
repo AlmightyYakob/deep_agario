@@ -41,6 +41,19 @@ class CustomProcessor(Processor):
         return reshaped
 
 
+class LSTMProcessor(Processor):
+    """
+    acts as a coupling mechanism between the agent and the environment
+    """
+
+    def process_state_batch(self, batch):
+        """
+        Given a state batch, I want to remove the second dimension, because it's
+        useless and prevents me from feeding the tensor into my CNN
+        """
+        return np.reshape(batch, newshape=(*batch.shape, 1))
+
+
 def base_conv_model(env):
     input_shape = env.observation_space.shape
     num_actions = env.action_space.n
@@ -77,17 +90,21 @@ def conv_model(env):
 
 def lstm_conv_model(env):
     model = Sequential()
-    model.add(TimeDistributed(base_conv_model(env)))
-    model.add(LSTM())
-
+    model.add(TimeDistributed(base_conv_model(env), input_shape=(1, *env.observation_space.shape)))
+    model.add(LSTM(256))
+    model.add(Dense(128))
+    model.add(Dense(env.action_space.n))
+    model.compile(
+        loss=categorical_crossentropy, optimizer=Adam(), metrics=["accuracy"],
+    )
     return model
 
 
 def main():
     try:
         # env = gym.make("AirRaid-v0")
-        env = gym.make("slitherio-v0")
-        # env = gym.make("slitherio-v0", headless=False, width=500, height=500)
+        # env = gym.make("slitherio-v0")
+        env = gym.make("slitherio-v0", headless=False, width=500, height=500)
 
         model_callbacks = [
             ModelIntervalCheckpoint(
@@ -95,7 +112,8 @@ def main():
             )
         ]
 
-        model = conv_model(env)
+        # model = conv_model(env)
+        model = lstm_conv_model(env)
         # print(model.summary())
 
         policy = LinearAnnealedPolicy(
@@ -117,7 +135,8 @@ def main():
             enable_double_dqn=True,
             # enable_dueling_network=True,
             # dueling_type="avg",
-            processor=CustomProcessor(),
+            # processor=CustomProcessor(),
+            processor=LSTMProcessor(),
         )
         dqn.compile(Adam(lr=1e-3), metrics=["mae"])
         dqn.fit(
