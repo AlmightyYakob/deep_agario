@@ -31,6 +31,8 @@ NUM_EXTRA_ACTIONS = 0
 
 MOUSE_RADIUS_FRACTION = 0.25
 
+OBSERVATION_INTENSITY_THRESHOLD = 255 / 4
+
 DEFAULT_CHROME_OPTIONS = {
     "width": 300,
     "height": 300,
@@ -53,6 +55,7 @@ class SlitherIOEnv(Env):
         chrome_options.add_argument(
             f"window-size={desired_window_width},{desired_window_height}"
         )
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
 
         self.action_space = spaces.Discrete(options["granularity"] + NUM_EXTRA_ACTIONS)
         self.action_space.shape = (1, self.action_space.n)
@@ -149,6 +152,12 @@ class SlitherIOEnv(Env):
         image = Image.open(BytesIO(shot))
         np_image = np.array(image)
         grayscale = cv2.cvtColor(np_image, cv2.COLOR_RGB2GRAY)
+
+        # TODO: Finetune clipping value, or change
+        # to use exact background color values
+        indices = grayscale < OBSERVATION_INTENSITY_THRESHOLD
+        grayscale[indices] = 0
+
         return grayscale
 
     def take_action(self, action):
@@ -192,7 +201,9 @@ class SlitherIOEnv(Env):
 
         done = False
         if self.snake_is_dead():
-            reward = -score
+            # reward = -score
+            # TODO reward should be a constant negative
+            reward = -500
             done = True
             print(f"\n{'-'*10}DEAD{'-'*10}\n")
         else:
