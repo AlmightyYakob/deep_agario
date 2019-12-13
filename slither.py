@@ -1,29 +1,35 @@
 import gym
 import gym_io  # NOQA
 
+import click
 import numpy as np
 
-from keras.models import Sequential
+from keras.optimizers import Adam
 from rl.agents.dqn import DQNAgent
 from rl.policy import EpsGreedyQPolicy, LinearAnnealedPolicy
 from rl.memory import SequentialMemory
 from rl.core import Processor
 from rl.callbacks import ModelIntervalCheckpoint
 
-from keras.layers import Dense, Dropout, Flatten, TimeDistributed
-from keras.layers import Conv2D, MaxPooling2D, LSTM
-from keras.losses import categorical_crossentropy
-from keras.optimizers import Adam
+from selenium.common.exceptions import WebDriverException
+
+from models import (
+    full_combined_conv_lstm_model,
+    conv_model,
+    lstm_conv_model,
+    enhanced_conv_lstm_model,
+)
+
 
 # from keras import backend as K
 # K.set_image_data_format('channels_first')
 
 
 DQN_MEMORY_SIZE = 100
-MODEL_SAVE_STEP_INTERVAL = 50
+MODEL_SAVE_STEP_INTERVAL = 100
 # SAVED_MODEL_NAME = "current_model.h5"
 SAVED_MODEL_NAME = "new_current_model.h5"
-NSTEPS = 10000
+NSTEPS = 100000
 
 
 class CustomProcessor(Processor):
@@ -54,50 +60,12 @@ class LSTMProcessor(Processor):
         return np.reshape(batch, newshape=(*batch.shape, 1))
 
 
-def base_conv_model(env):
-    input_shape = env.observation_space.shape
-    num_actions = env.action_space.n
-
-    model = Sequential()
-    model.add(
-        Conv2D(32, kernel_size=(3, 3), activation="relu", input_shape=input_shape)
-    )
-    model.add(MaxPooling2D((2, 2)))
-    model.add(Dropout(0.25))
-
-    model.add(Conv2D(64, kernel_size=(3, 3), activation="relu"))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
-
-    model.add(Conv2D(128, kernel_size=(3, 3), activation="relu"))
-    model.add(Dropout(0.4))
-
-    model.add(Flatten())
-
-    model.add(Dense(128, activation="relu"))
-    model.add(Dropout(0.3))
-    model.add(Dense(num_actions, activation="softmax"))
-    return model
-
-
-def conv_model(env):
-    model = base_conv_model(env)
-    model.compile(
-        loss=categorical_crossentropy, optimizer=Adam(), metrics=["accuracy"],
-    )
-    return model
-
-
-def lstm_conv_model(env):
-    model = Sequential()
-    model.add(TimeDistributed(base_conv_model(env), input_shape=(1, *env.observation_space.shape)))
-    model.add(LSTM(256))
-    model.add(Dense(128))
-    model.add(Dense(env.action_space.n))
-    model.compile(
-        loss=categorical_crossentropy, optimizer=Adam(), metrics=["accuracy"],
-    )
-    return model
+# @click.option("-l", "--load-model", "model_name")
+# def train(model_name):
+#     if model_name:
+#         model =
+#     else:
+#         model =
 
 
 def main():
@@ -113,40 +81,58 @@ def main():
         ]
 
         # model = conv_model(env)
-        model = lstm_conv_model(env)
+        # model = lstm_conv_model(env)
+        model = full_combined_conv_lstm_model(env)
+        model.load_weights(SAVED_MODEL_NAME)
+        # model = enhanced_conv_lstm_model(env)
         # print(model.summary())
+        major_rounds = int(NSTEPS / 1000)
+        max_total_eps = 1.0
+        min_total_eps = 0.1
+        eps_range = max_total_eps - min_total_eps
+        eps_step = eps_range / major_rounds
 
-        policy = LinearAnnealedPolicy(
-            EpsGreedyQPolicy(eps=0.1),
-            attr="eps",
-            value_max=1.0,
-            value_min=0.1,
-            value_test=0.1,
-            nb_steps=NSTEPS,
-        )
-        memory = SequentialMemory(limit=DQN_MEMORY_SIZE, window_length=1)
-        dqn = DQNAgent(
-            model=model,
-            nb_actions=env.action_space.n,
-            memory=memory,
-            # nb_steps_warmup=DQN_MEMORY_SIZE,
-            target_model_update=1e-2,
-            policy=policy,
-            enable_double_dqn=True,
-            # enable_dueling_network=True,
-            # dueling_type="avg",
-            # processor=CustomProcessor(),
-            processor=LSTMProcessor(),
-        )
-        dqn.compile(Adam(lr=1e-3), metrics=["mae"])
-        dqn.fit(
-            env, nb_steps=NSTEPS, visualize=False, verbose=1, callbacks=model_callbacks
-        )
+        for major_step in range(major_rounds):
+            print("Major step", major_step, "of", major_rounds)
+
+            max_eps = max_total_eps - eps_step * major_step
+            min_eps = max_eps - eps_step
+
+            policy = LinearAnnealedPolicy(
+                EpsGreedyQPolicy(eps=0.1),
+                attr="eps",
+                value_max=max_eps,
+                value_min=min_eps,
+                value_test=0.1,
+                nb_steps=1000,
+            )
+            memory = SequentialMemory(limit=DQN_MEMORY_SIZE, window_length=1)
+            dqn = DQNAgent(
+                model=model,
+                nb_actions=env.action_space.n,
+                memory=memory,
+                target_model_update=1e-2,
+                policy=policy,
+                enable_double_dqn=True,
+                processor=LSTMProcessor(),
+            )
+            dqn.compile(Adam(lr=1e-3), metrics=["mae"])
+            dqn.fit(
+                env,
+                nb_steps=1000,
+                visualize=False,
+                verbose=1,
+                callbacks=model_callbacks,
+                log_interval=1000,  # TODO bruh this fixes the 10000 issue!
+            )
 
         env.reset()
         dqn.test(env, nb_episodes=5, visualize=True)
 
         env.close()
+
+    except WebDriverException as e:
+        print(e)
 
     except Exception as e:
         env.close()
