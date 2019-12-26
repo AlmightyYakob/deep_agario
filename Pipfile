@@ -10,11 +10,12 @@ black = "*"
 [packages]
 selenium = "*"
 mss = "*"
+click = "*"
 python_dotenv = "*"
 gym = "*"
 keras = "*"
 keras-rl = "*"
-gym-io = {path = "./gym-io",editable = true}
+slitherEnv = {git = "https://github.com/AlmightyYakob/SlitherEnv.git", editable = true, ref = "master"}
 pillow = "*"
 opencv-python = "*"
 
