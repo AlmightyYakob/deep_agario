@@ -264,7 +264,7 @@ if __name__ == "__main__":
 
     from slither import conv_model
     import gym
-    import gym_io
+    import slither_env
 
     env = gym.make("slitherio-v0", headless=False, width=500, height=500)
     model = conv_model(env)

@@ -1,5 +1,5 @@
 import gym
-import gym_io
+import slither_env
 from keras.models import load_model
 from slither import conv_model, LSTMProcessor, DQN_MEMORY_SIZE
 from models import full_combined_conv_lstm_model

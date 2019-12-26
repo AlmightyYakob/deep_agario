@@ -1,5 +1,5 @@
 import gym
-import gym_io  # NOQA
+import slither_env  # NOQA
 
 import click
 import numpy as np
@@ -81,10 +81,12 @@ def main():
         ]
 
         # model = conv_model(env)
-        # model = lstm_conv_model(env)
-        model = full_combined_conv_lstm_model(env)
-        model.load_weights(SAVED_MODEL_NAME)
         # model = enhanced_conv_lstm_model(env)
+        # model = lstm_conv_model(env)
+
+        model = full_combined_conv_lstm_model(env)
+        # model.load_weights(SAVED_MODEL_NAME)
+
         # print(model.summary())
         major_rounds = int(NSTEPS / 1000)
         max_total_eps = 1.0
