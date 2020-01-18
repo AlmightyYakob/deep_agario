@@ -15,6 +15,7 @@ from selenium.webdriver.support.expected_conditions import (
 from PIL import Image
 from io import BytesIO
 import cv2
+import time
 
 
 SLITHERIO_URL = "https://slither.io"
@@ -26,7 +27,7 @@ PLAY_BUTTON_CLASS_INDEX = 2
 OVERLAY_CSS_SELECTOR = "div.nsi"
 OVERLAY_INDICES = [12, 13, 14, 15, 16, 17, 18]
 
-DEGREE_GRANULARITY = 12
+DEGREE_GRANULARITY = 8
 NUM_EXTRA_ACTIONS = 0
 
 MOUSE_RADIUS_FRACTION = 0.25
@@ -50,6 +51,9 @@ class SlitherIOEnv(Env):
         desired_window_width = options["width"]
         desired_window_height = options["height"]
         headless = options["headless"]
+
+        if not headless:
+            desired_window_height += 85
 
         chrome_options = Options()
         chrome_options.add_argument(
@@ -155,8 +159,8 @@ class SlitherIOEnv(Env):
 
         # TODO: Finetune clipping value, or change
         # to use exact background color values
-        indices = grayscale < OBSERVATION_INTENSITY_THRESHOLD
-        grayscale[indices] = 0
+        #indices = grayscale < OBSERVATION_INTENSITY_THRESHOLD
+        #grayscale[indices] = 0
 
         return grayscale
 
@@ -202,23 +206,27 @@ class SlitherIOEnv(Env):
         done = False
         if self.snake_is_dead():
             # reward = -score
-            # TODO reward should be a constant negative
-            reward = -500
+            reward = -1
             done = True
             print(f"\n{'-'*10}DEAD{'-'*10}\n")
         else:
             new_score = self.get_score()
-            reward = new_score - score
+            reward = (new_score - score) / float(new_score)
 
         return (obs, reward, done, {})
 
     def reset(self):
         self.reset_game()
+        time.sleep(1)
         return self.observe()
 
     def render(self, mode="human", close=False):
-        # Probably ignore for now
-        pass
+        img = self.observe()
+        cv2.imshow("main", img)
+        cv2.imshow("horz", cv2.flip(img, 1))
+        cv2.imshow("vert", cv2.flip(img, 0))
+        cv2.imshow("diag", cv2.flip(cv2.flip(img, 0) ,1))
+        cv2.waitKey(1)
 
     def close(self):
         self.driver.quit()
